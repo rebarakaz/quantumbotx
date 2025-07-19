@@ -1,0 +1,69 @@
+# ==============================================================================
+# Python & Lingkungan Virtual
+# ==============================================================================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+venv/
+env/
+ENV/
+.env
+
+# ==============================================================================
+# File Sensitif & Konfigurasi Lokal
+# ==============================================================================
+*.env
+.env.*
+*.key
+*.pem
+instance/  # Folder konfigurasi rahasia Flask
+
+# ==============================================================================
+# Database & Log
+#
+# Alasan: File database akan terus berubah dan tidak boleh di-commit.
+# Log juga spesifik untuk setiap sesi running.
+# ==============================================================================
+*.sqlite3
+bots.db
+*.db
+logs/
+*.log
+
+# ==============================================================================
+# File Hasil Build & Dependensi
+# ==============================================================================
+*.egg-info/
+dist/
+build/
+pip-wheel-metadata/
+node_modules/ # Untuk dependensi frontend di masa depan
+
+# ==============================================================================
+# File Spesifik IDE & Sistem Operasi
+# ==============================================================================
+.vscode/
+.idea/
+.DS_Store # Untuk macOS
+Thumbs.db # Untuk Windows
+
+# ==============================================================================
+# File Sementara & Backup
+# ==============================================================================
+*.bak
+*.swp
+*.tmp
+*.old
+*.pkl  # Model AI yang sudah dilatih (biasanya besar & bisa digenerasi ulang)
+*.h5   # Format lain untuk model AI
+
+
+# === PERUBAHAN PENTING ===
+# JANGAN abaikan file data .csv secara global.
+# File data untuk backtesting adalah bagian penting dari proyek.
+# Simpan mereka di dalam folder 'data/'. Jika ada file CSV lain
+# (seperti laporan hasil) yang ingin diabaikan, sebutkan secara spesifik.
+# Contoh:
+# reports/*.csv

@@ -1,0 +1,1 @@
+# Strategi trading

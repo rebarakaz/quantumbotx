@@ -1,0 +1,21 @@
+/* static/css/dashboard.css */
+.gradient-bg {
+    background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
+}
+.chart-container {
+    position: relative;
+    height: 300px;
+    width: 100%;
+}
+.tradingview-widget-container {
+    height: 100%;
+    width: 100%;
+}
+.blink {
+    animation: blink-animation 1s steps(5, start) infinite;
+}
+@keyframes blink-animation {
+    to {
+        visibility: hidden;
+    }
+}
