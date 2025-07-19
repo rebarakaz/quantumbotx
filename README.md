@@ -47,10 +47,10 @@ Designed to be elegant, powerful, and flexible — whether you're a scalper, swi
 Rename `.env.example` → `.env`, and fill in the following:
 
 ```env
-MT5_LOGIN=your_mt5_login
-MT5_PASSWORD=your_password
+MT5_LOGIN="your_mt5_login"
+MT5_PASSWORD="your_password"
 MT5_SERVER=MetaQuotes-Demo
-SECRET_KEY=any_flask_secret_key
+SECRET_KEY="any_flask_secret_key"
 DB_NAME=bots.db
 ````
 
@@ -113,20 +113,3 @@ MIT — feel free to fork, build on top, or deploy your own!
 ```
 
 ---
-
-### ✅ Tinggal kamu sesuaikan:
-- Nama repo GitHub
-- Dompet kripto kalau kamu pengen tampilkan 🙃
-- Screenshot dashboard tinggal kamu taruh di `static/img/`
-
----
-
-### Bonus?
-Kalau kamu mau, aku siapin `requirements.txt` dan `Procfile` juga biar kamu bisa deploy ke:
-- ✅ PythonAnywhere
-- ✅ Heroku (pakai Gunicorn)
-- ✅ Docker (next step)
-
-Bilang aja:  
-> `deployable(ready=True)` 😘
-```
