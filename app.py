@@ -1,13 +1,27 @@
-# app.py
-from flask import Flask, render_template, jsonify, request
+# app.py - FIXED VERSION
+import os
+from flask import Flask, render_template
+from flask import send_from_directory
+from dotenv import load_dotenv
 from core.bots.trading_bot import TradingBot
 from core.db.queries import get_db_connection, load_bots_from_db
 from core.utils.mt5 import initialize_mt5
-import MetaTrader5 as mt5
 from core.bots.controller import load_all_bots
+import logging
+
+# Load environment variables
+load_dotenv()
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # === INIT APP ===
 app = Flask(__name__)
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key-here')
 
 # === REGISTER BLUEPRINTS ===
 from core.routes.api_dashboard import api_dashboard
@@ -26,27 +40,18 @@ from core.routes.api_crypto import api_crypto
 from core.routes.api_analysis import api_analysis
 from core.routes.api_fundamentals import api_fundamentals
 
-# === DAFTARKAN BLUEPRINTS ===
-app.register_blueprint(api_dashboard)
-app.register_blueprint(api_chart)
-app.register_blueprint(api_bots)
-app.register_blueprint(api_profile)
-app.register_blueprint(api_indicators)
-app.register_blueprint(api_bots_analysis)
-app.register_blueprint(api_bots_fundamentals)
-app.register_blueprint(api_portfolio)
-app.register_blueprint(api_history)
-app.register_blueprint(api_notifications)
-app.register_blueprint(api_stocks)
-app.register_blueprint(api_forex)
-app.register_blueprint(api_crypto)
-app.register_blueprint(api_analysis)
-app.register_blueprint(api_fundamentals)
+# Register blueprints
+blueprints = [
+    api_dashboard, api_chart, api_bots, api_profile, api_indicators,
+    api_bots_analysis, api_bots_fundamentals, api_portfolio, api_history,
+    api_notifications, api_stocks, api_forex, api_crypto, api_analysis,
+    api_fundamentals
+]
 
-# Load semua bot dari database
-load_all_bots()
+for blueprint in blueprints:
+    app.register_blueprint(blueprint)
 
-# Halaman Utama
+# === ROUTES ===
 @app.route('/')
 def dashboard():
     return render_template('index.html')
@@ -79,17 +84,55 @@ def profile_page():
 def notifications_page():
     return render_template('notifications.html')
 
-# ✨ ENDPOINT API (akan kita pisahkan nanti jadi routes modular)
-# Tapi untuk sementara, biarkan tetap di sini agar tidak error.
+# === ERROR HANDLERS ===
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template('404.html'), 404
 
-# --- JALANKAN APP ---
+@app.errorhandler(500)
+def internal_error(error):
+    logger.error(f"Internal error: {error}")
+    return render_template('500.html'), 500
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(os.path.join(app.root_path, 'static'),
+                               'favicon.ico', mimetype='image/vnd.microsoft.icon')
+                               
+# === MAIN ===
 if __name__ == '__main__':
-    ACCOUNT = 94464091
-    PASSWORD = "3rX@GcMm"
-    SERVER = "MetaQuotes-Demo"
+    # ✅ SECURE: Load from environment variables
+    try:
+        ACCOUNT = int(os.getenv('MT5_LOGIN'))
+        PASSWORD = os.getenv('MT5_PASSWORD')
+        SERVER = os.getenv('MT5_SERVER', 'MetaQuotes-Demo')
+        
+        if not ACCOUNT or not PASSWORD:
+            logger.error("MT5 credentials not found in .env file")
+            exit(1)
+            
+    except (ValueError, TypeError) as e:
+        logger.error(f"Invalid MT5 credentials in .env: {e}")
+        exit(1)
 
+    # Initialize MT5
     if not initialize_mt5(ACCOUNT, PASSWORD, SERVER):
-        print("❌ Gagal terhubung ke MT5")
+        logger.error("❌ Failed to connect to MT5")
+        exit(1)
     else:
-        load_all_bots()
-        app.run(debug=True, use_reloader=False)
+        logger.info("✅ MT5 connected successfully")
+        
+        # Load all bots
+        try:
+            load_all_bots()
+            logger.info("✅ All bots loaded successfully")
+        except Exception as e:
+            logger.error(f"Error loading bots: {e}")
+        
+        # Start Flask app
+        app.run(
+            debug=os.getenv('FLASK_DEBUG', 'False').lower() == 'true',
+            host=os.getenv('FLASK_HOST', '127.0.0.1'),
+            port=int(os.getenv('FLASK_PORT', 5000)),
+            use_reloader=False
+        )

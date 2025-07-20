@@ -2,7 +2,6 @@
 
 from flask import Blueprint, jsonify
 from core.db.queries import get_bot_by_id
-from core.data.fetch import get_recommendation_trends, get_company_profile
 
 api_bots_fundamentals = Blueprint('api_bots_fundamentals', __name__)
 

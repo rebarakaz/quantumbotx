@@ -1,5 +1,6 @@
-// Simpan ini sebagai static/js/bot_detail.js
+// static/js/bot_detail.js
 document.addEventListener('DOMContentLoaded', function() {
+    // --- Elemen Global ---
     const botNameHeader = document.getElementById('bot-name-header');
     const botMarketHeader = document.getElementById('bot-market-header');
     const botStatusBadge = document.getElementById('bot-status-badge');
@@ -9,9 +10,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const analysisSignal = document.getElementById('analysis-signal');
     const historyContainer = document.getElementById('history-log-container');
 
+    // --- State & Helper ---
     const pathParts = window.location.pathname.split('/');
     const botId = pathParts[pathParts.length - 1];
-    let botStrategy = "";
+    let botData = null; // Gunakan objek untuk menyimpan semua data bot, bukan hanya strategi
 
     const formatTimestamp = (iso) =>
         new Date(iso).toLocaleString('id-ID', {
@@ -19,22 +21,25 @@ document.addEventListener('DOMContentLoaded', function() {
             hour: '2-digit', minute: '2-digit', second: '2-digit'
         });
 
+    // --- Fungsi Pengambil Data ---
+
     async function fetchBotDetails() {
         try {
             const res = await fetch(`/api/bots/${botId}`);
-            const bot = await res.json();
-            if (bot.error) throw new Error(bot.error);
+            if (!res.ok) throw new Error('Gagal memuat detail bot dari server.');
+            botData = await res.json();
+            if (botData.error) throw new Error(botData.error);
 
-            botNameHeader.textContent = bot.name;
-            botMarketHeader.textContent = `Pasar: ${bot.market} | Timeframe: ${bot.timeframe}`;
-            botStrategy = bot.strategy;
-
-            botStatusBadge.textContent = bot.status;
+            // Render detail bot
+            botNameHeader.textContent = botData.name;
+            botMarketHeader.textContent = `Pasar: ${botData.market} | Timeframe: ${botData.timeframe}`;
+            
+            botStatusBadge.textContent = botData.status;
             botStatusBadge.className = `px-3 py-1 text-xs font-medium rounded-full ${
-                bot.status === 'Aktif' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                botData.status === 'Aktif' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
             }`;
 
-            if (bot.strategy === 'MERCY_EDGE') {
+            if (botData.strategy.includes('MERCY') || botData.strategy.includes('PULSE')) {
                 const aiBadge = document.createElement('span');
                 aiBadge.textContent = 'AI';
                 aiBadge.className = 'ml-2 px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded-full';
@@ -43,21 +48,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
             paramsContainer.innerHTML = `
                 <div class="grid grid-cols-2 gap-4">
-                    <div><p class="text-gray-500">Lot Size</p><p class="font-semibold text-gray-800">${bot.lot_size}</p></div>
-                    <div><p class="text-gray-500">Stop Loss</p><p class="font-semibold text-gray-800">${bot.sl_pips} pips</p></div>
-                    <div><p class="text-gray-500">Take Profit</p><p class="font-semibold text-gray-800">${bot.tp_pips} pips</p></div>
-                    <div><p class="text-gray-500">Interval</p><p class="font-semibold text-gray-800">${bot.check_interval_seconds}s</p></div>
-                    <div><p class="text-gray-500">Strategi</p><p class="font-semibold text-gray-800">${bot.strategy}</p></div>
+                    <div><p class="text-gray-500">Lot Size</p><p class="font-semibold text-gray-800">${botData.lot_size}</p></div>
+                    <div><p class="text-gray-500">Stop Loss</p><p class="font-semibold text-gray-800">${botData.sl_pips} pips</p></div>
+                    <div><p class="text-gray-500">Take Profit</p><p class="font-semibold text-gray-800">${botData.tp_pips} pips</p></div>
+                    <div><p class="text-gray-500">Interval</p><p class="font-semibold text-gray-800">${botData.check_interval_seconds}s</p></div>
+                    <div><p class="text-gray-500">Strategi</p><p class="font-semibold text-gray-800">${botData.strategy}</p></div>
                 </div>
             `;
 
-            if (!bot.market.includes('/')) fetchBotFundamentals();
+            if (!botData.market.includes('/')) fetchBotFundamentals();
+            
+            // ** PERBAIKAN RACE CONDITION **
+            // Panggil fetchBotAnalysis HANYA SETELAH detail bot berhasil didapat.
+            await fetchBotAnalysis();
+
         } catch (e) {
             console.error('Error fetching bot details:', e);
             botNameHeader.textContent = 'Gagal Memuat';
+            botStatusBadge.textContent = 'Error';
+            botStatusBadge.className = 'px-3 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800';
         }
     }
-
+    
     async function fetchBotFundamentals() {
         try {
             const res = await fetch(`/api/bots/${botId}/fundamentals`);
@@ -113,55 +125,76 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // ** FUNGSI INI DIBUAT JAUH LEBIH KUAT (ROBUST) **
     async function fetchBotAnalysis() {
+        if (!botData) { // Jangan jalankan jika detail bot belum ada
+            console.log("Menunggu detail bot sebelum mengambil analisis...");
+            return;
+        }
+
         try {
             const res = await fetch(`/api/bots/${botId}/analysis`);
+            if (!res.ok) throw new Error('Gagal memuat data analisis dari server.');
             const analysis = await res.json();
             if (analysis.error) throw new Error(analysis.error);
 
-            analysisContainer.innerHTML = "";
+            analysisContainer.innerHTML = ""; // Bersihkan kontainer
+            const botStrategy = botData.strategy;
 
+            // ** PERBAIKAN KODE RAPUH (FRAGILE CODE) **
+            // Gunakan optional chaining (?.) untuk mengakses properti dengan aman.
+            // Gunakan nullish coalescing (??) untuk memberikan nilai default jika data tidak ada.
+            
             if (botStrategy === "MA_CROSSOVER") {
                 analysisContainer.innerHTML = `
-                    <p><strong>Harga:</strong> ${analysis.price.toFixed(4)}</p>
-                    <p><strong>MA7:</strong> ${analysis.ma7.toFixed(4)}</p>
-                    <p><strong>MA25:</strong> ${analysis.ma25.toFixed(4)}</p>`;
+                    <p><strong>Harga:</strong> ${analysis.price?.toFixed(5) ?? 'N/A'}</p>
+                    <p><strong>MA Fast:</strong> ${analysis.ma_fast?.toFixed(5) ?? 'N/A'}</p>
+                    <p><strong>MA Slow:</strong> ${analysis.ma_slow?.toFixed(5) ?? 'N/A'}</p>`;
             } else if (botStrategy === "RSI_BREAKOUT") {
                 analysisContainer.innerHTML = `
-                    <p><strong>Harga:</strong> ${analysis.price.toFixed(4)}</p>
-                    <p><strong>RSI:</strong> ${analysis.rsi.toFixed(2)}</p>`;
-            } else if (botStrategy === "MERCY_EDGE") {
+                    <p><strong>Harga:</strong> ${analysis.price?.toFixed(5) ?? 'N/A'}</p>
+                    <p><strong>RSI (14):</strong> ${analysis.rsi?.toFixed(2) ?? 'N/A'}</p>`;
+            } else if (botStrategy === "MERCY_EDGE" || botStrategy === "FULL_MERCY") {
                 analysisContainer.innerHTML = `
-                    <p><strong>MACD:</strong> ${analysis.macd.toFixed(4)}</p>
-                    <p><strong>STOCH %K:</strong> ${analysis.stoch_k.toFixed(2)} | %D: ${analysis.stoch_d.toFixed(2)}</p>`;
-            } else if (botStrategy === "PULSE_SYNC") {
-                analysisContainer.innerHTML = `
-                    <p><strong>AI Signal:</strong> ${analysis.ai_decision}</p>
-                    <p><strong>Confidence:</strong> ${analysis.confidence}%</p>`;
-            } else {
-                for (const [k, v] of Object.entries(analysis)) {
-                    if (k !== 'signal') {
-                        analysisContainer.innerHTML += `<p><strong>${k}:</strong> ${v}</p>`;
+                    <p><strong>Harga:</strong> ${analysis.price?.toFixed(5) ?? 'N/A'}</p>
+                    <p><strong>MACD Hist D1:</strong> ${analysis.D1_MACDh?.toFixed(5) ?? 'N/A'}</p>
+                    <p><strong>MACD Hist H1:</strong> ${analysis.H1_MACDh?.toFixed(5) ?? 'N/A'}</p>
+                    <p><strong>Stoch %K:</strong> ${analysis.H1_STOCHk?.toFixed(2) ?? 'N/A'} | <strong>%D:</strong> ${analysis.H1_STOCHd?.toFixed(2) ?? 'N/A'}</p>`;
+            } 
+            // Tambahkan strategi lain yang Anda buat di sini
+            else { 
+                // Fallback untuk strategi yang tidak dikenal, tampilkan semua data yang ada
+                for (const [key, value] of Object.entries(analysis)) {
+                    if (key !== 'signal' && value !== null) {
+                        const formattedValue = typeof value === 'number' ? value.toFixed(5) : value;
+                        analysisContainer.innerHTML += `<p><strong>${key}:</strong> ${formattedValue}</p>`;
                     }
                 }
             }
 
             // Update sinyal
-            analysisSignal.textContent = analysis.signal || "-";
+            analysisSignal.textContent = analysis.signal || "TAHAN";
             let color = 'bg-gray-200 text-gray-800';
-            if (analysis.signal?.includes('BELI')) color = 'bg-green-100 text-green-800';
-            if (analysis.signal?.includes('JUAL')) color = 'bg-red-100 text-red-800';
+            if (analysis.signal?.includes('BUY') || analysis.signal?.includes('BULLISH')) color = 'bg-green-100 text-green-800';
+            if (analysis.signal?.includes('SELL') || analysis.signal?.includes('BEARISH')) color = 'bg-red-100 text-red-800';
             analysisSignal.className = `mt-4 text-center font-bold text-lg p-2 rounded-md ${color}`;
 
         } catch (e) {
-            analysisSignal.textContent = e.message;
+            console.error('Error fetching bot analysis:', e);
+            analysisSignal.textContent = e.message || 'Error Analisis';
             analysisSignal.className = 'mt-4 text-center font-bold text-lg p-2 rounded-md bg-yellow-100 text-yellow-800';
+            analysisContainer.innerHTML = '<p class="text-center text-gray-500">- Gagal memuat data -</p>';
         }
     }
 
+    // --- Pusat Kontrol ---
+    // HANYA panggil DUA fungsi ini di awal. fetchBotAnalysis akan dipanggil oleh fetchBotDetails.
     fetchBotDetails();
     fetchBotHistory();
-    fetchBotAnalysis();
+
+    // Set interval seperti biasa
     setInterval(fetchBotHistory, 10000);
-    setInterval(fetchBotAnalysis, 5000);
+    // PERBAIKAN: Interval analisis sekarang juga memanggil fetchBotDetails
+    // agar data bot (misal strateginya diedit) ikut ter-update.
+    setInterval(fetchBotDetails, 5000); 
 });

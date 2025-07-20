@@ -111,5 +111,3 @@ USDT TRC20: TRxxxxxxxxxxxx
 MIT — feel free to fork, build on top, or deploy your own!
 
 ```
-
----
