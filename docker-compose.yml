@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  quantumbotx:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+      - ./instance:/app/instance # Persist database
+      - ./logs:/app/logs # Persist logs
+    environment:
+      - FLASK_ENV=development
+      - BROKER_TYPE=CCXT
+      - EXCHANGE_ID=binance
+      # - API_KEY=your_api_key
+      # - API_SECRET=your_api_secret
+    restart: unless-stopped

@@ -5,6 +5,9 @@ import logging
 from core.db import queries
 from .trading_bot import TradingBot
 from core.strategies.strategy_map import STRATEGY_MAP
+from core.factory.broker_factory import BrokerFactory
+import os
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
@@ -126,13 +129,27 @@ def mulai_bot(bot_id: int):
     params_dict = json.loads(bot_data.get('strategy_params', '{}'))
 
     try:
+        # Initialize Broker Adapter
+        load_dotenv()
+        broker_type = os.getenv('BROKER_TYPE', 'MT5') # Default to MT5
+        broker = BrokerFactory.get_broker(broker_type)
+        
+        if broker:
+            creds = {
+                'MT5_LOGIN': os.getenv('MT5_LOGIN'),
+                'MT5_PASSWORD': os.getenv('MT5_PASSWORD'),
+                'MT5_SERVER': os.getenv('MT5_SERVER')
+            }
+            broker.initialize(creds)
+
         bot_thread = TradingBot(
             id=bot_data['id'], name=bot_data['name'], market=bot_data['market'],
             risk_percent=bot_data['lot_size'], sl_pips=bot_data['sl_pips'],
             tp_pips=bot_data['tp_pips'], timeframe=bot_data['timeframe'],
             check_interval=bot_data['check_interval_seconds'], strategy=bot_data['strategy'],
             strategy_params=params_dict,
-            enable_strategy_switching=bool(bot_data.get('enable_strategy_switching', 0))
+            enable_strategy_switching=bool(bot_data.get('enable_strategy_switching', 0)),
+            broker=broker
         )
         bot_thread.start()
         active_bots[bot_id] = bot_thread

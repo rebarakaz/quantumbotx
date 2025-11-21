@@ -4,10 +4,10 @@ import threading
 import time
 import logging
 from datetime import datetime
-import MetaTrader5 as mt5
 from core.strategies.strategy_map import STRATEGY_MAP
-from core.mt5.trade import place_trade, close_trade
-from core.utils.mt5 import TIMEFRAME_MAP  # <-- Impor dari lokasi terpusat
+from core.factory.broker_factory import BrokerFactory
+# from core.mt5.trade import place_trade, close_trade  <-- DEPRECATED
+from core.utils.mt5 import TIMEFRAME_MAP  # Keep for now or move to adapter
 # AI Mentor Integration
 from core.db.models import log_trade_for_ai_analysis
 # Holiday and market hours management
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class TradingBot(threading.Thread):
-    def __init__(self, id, name, market, risk_percent, sl_pips, tp_pips, timeframe, check_interval, strategy, strategy_params={}, status='Dijeda', enable_strategy_switching=False):
+    def __init__(self, id, name, market, risk_percent, sl_pips, tp_pips, timeframe, check_interval, strategy, strategy_params={}, status='Dijeda', enable_strategy_switching=False, broker=None):
         super().__init__()
         self.id = id
         self.name = name
@@ -37,24 +37,48 @@ class TradingBot(threading.Thread):
         self.last_analysis = {"signal": "MEMUAT", "explanation": "Bot sedang memulai, menunggu analisis pertama..."}
         self._stop_event = threading.Event()
         self.strategy_instance = None
+        self.strategy_instance = None
         # Gunakan map yang diimpor untuk menjaga konsistensi
         self.tf_map = TIMEFRAME_MAP
+        
+        # Initialize Broker Adapter
+        if broker:
+            self.broker = broker
+        else:
+            # Default to MT5 if not provided (for backward compatibility or default behavior)
+            self.broker = BrokerFactory.get_broker('MT5')
+            # We assume credentials are in env or handled by adapter internally for now
+            # In a real scenario, we might pass credentials here
+            from dotenv import load_dotenv
+            import os
+            load_dotenv()
+            creds = {
+                'MT5_LOGIN': os.getenv('MT5_LOGIN'),
+                'MT5_PASSWORD': os.getenv('MT5_PASSWORD'),
+                'MT5_SERVER': os.getenv('MT5_SERVER')
+            }
+            self.broker.initialize(creds)
 
     def run(self):
         """Metode utama yang dijalankan oleh thread, kini dengan eksekusi trade."""
         self.status = 'Aktif'
         self.log_activity('START', f"Bot '{self.name}' dimulai.", is_notification=True)
 
-        # --- PERBAIKAN: Verifikasi Simbol Cerdas ---
-        from core.utils.mt5 import find_mt5_symbol
-        self.market_for_mt5 = find_mt5_symbol(self.market)
-
-        if not self.market_for_mt5:
-            msg = f"Simbol '{self.market}' atau variasinya tidak dapat ditemukan/diaktifkan di Market Watch MT5."
+        # --- PERBAIKAN: Verifikasi Simbol Cerdas via Adapter ---
+        # from core.utils.mt5 import find_mt5_symbol <-- DEPRECATED
+        # self.market_for_mt5 = find_mt5_symbol(self.market)
+        
+        # We use get_symbol_info to verify if symbol exists and get the correct name
+        symbol_info = self.broker.get_symbol_info(self.market)
+        
+        if not symbol_info:
+            msg = f"Simbol '{self.market}' atau variasinya tidak dapat ditemukan/diaktifkan di Broker."
             self.log_activity('ERROR', msg, is_notification=True)
             self.status = 'Error'
             self.last_analysis = {"signal": "ERROR", "explanation": msg}
             return # Hentikan eksekusi jika simbol tidak valid
+            
+        self.market_for_mt5 = symbol_info['name'] # Use the resolved name from broker
 
         try:
             strategy_class = STRATEGY_MAP.get(self.strategy_name)
@@ -71,10 +95,8 @@ class TradingBot(threading.Thread):
 
         while not self._stop_event.is_set():
             try:
-                # Simbol sudah diverifikasi, jadi pemeriksaan ini menjadi redundan
-                # if not mt5.symbol_select(self.market_for_mt5, True): ...
-
-                symbol_info = mt5.symbol_info(self.market_for_mt5)  # type: ignore
+                # Simbol sudah diverifikasi
+                symbol_info = self.broker.get_symbol_info(self.market_for_mt5)
                 if not symbol_info:
                     msg = f"Tidak dapat mengambil info untuk simbol {self.market_for_mt5}."
                     self.log_activity('WARNING', msg)
@@ -83,9 +105,12 @@ class TradingBot(threading.Thread):
                     continue
 
                 # Bot sekarang yang mengambil data
-                from core.utils.mt5 import get_rates_mt5
-                tf_const = self.tf_map.get(self.timeframe, mt5.TIMEFRAME_H1)
-                df = get_rates_mt5(self.market_for_mt5, tf_const, 250)
+                # Bot sekarang yang mengambil data via Adapter
+                # from core.utils.mt5 import get_rates_mt5 <-- DEPRECATED
+                # tf_const = self.tf_map.get(self.timeframe, mt5.TIMEFRAME_H1)
+                # df = get_rates_mt5(self.market_for_mt5, tf_const, 250)
+                
+                df = self.broker.get_rates(self.market_for_mt5, self.timeframe, 250)
 
                 if df.empty:
                     msg = f"Gagal mengambil data harga untuk {self.market_for_mt5}. Periksa koneksi atau ketersediaan data historis."
@@ -142,10 +167,11 @@ class TradingBot(threading.Thread):
     def _get_open_position(self):
         """Mendapatkan posisi terbuka untuk bot ini berdasarkan magic number (ID bot)."""
         try:
-            positions = mt5.positions_get(symbol=self.market_for_mt5)  # type: ignore
+            positions = self.broker.get_open_positions()
             if positions:
                 for pos in positions:
-                    if pos.magic == self.id:
+                    # Adapter should return dicts, check magic
+                    if pos.get('magic') == self.id and pos.get('symbol') == self.market_for_mt5:
                         return pos
             return None
         except Exception as e:
@@ -215,52 +241,66 @@ class TradingBot(threading.Thread):
         # Logika untuk sinyal BUY
         if signal == 'BUY':
             # Jika ada posisi SELL, tutup dulu
-            if position and position.type == mt5.ORDER_TYPE_SELL:
+            if position and position.get('type') == 1: # 1 is SELL in MT5, Adapter should standardize this later
                 self.log_activity('CLOSE SELL', "Menutup posisi JUAL untuk membuka posisi BELI.", is_notification=True)
                 
                 # Log untuk AI mentor analysis
-                profit_loss = position.profit if hasattr(position, 'profit') else 0
+                profit_loss = position.get('profit', 0)
                 self._log_trade_for_ai_mentor(position, profit_loss, 'CLOSE_SELL')
                 
-                close_trade(position)
+                self.broker.close_position(position['ticket'])
                 position = None  # Reset posisi setelah ditutup
 
             # Jika tidak ada posisi, buka posisi BUY baru
             if not position:
                 self.log_activity('OPEN BUY', "Membuka posisi BELI berdasarkan sinyal.", is_notification=True)
-                place_trade(self.market_for_mt5, mt5.ORDER_TYPE_BUY, self.risk_percent, self.sl_pips, self.tp_pips, self.id, self.timeframe)
+                self.broker.place_order(
+                    symbol=self.market_for_mt5, 
+                    order_type='BUY', 
+                    volume=self.risk_percent, 
+                    sl=self.sl_pips, 
+                    tp=self.tp_pips, 
+                    comment=f"Bot-{self.id}"
+                )
 
         # Logika untuk sinyal SELL
         elif signal == 'SELL':
             # Jika ada posisi BUY, tutup dulu
-            if position and position.type == mt5.ORDER_TYPE_BUY:
+            if position and position.get('type') == 0: # 0 is BUY in MT5
                 self.log_activity('CLOSE BUY', "Menutup posisi BELI untuk membuka posisi JUAL.", is_notification=True)
                 
                 # Log untuk AI mentor analysis
-                profit_loss = position.profit if hasattr(position, 'profit') else 0
+                profit_loss = position.get('profit', 0)
                 self._log_trade_for_ai_mentor(position, profit_loss, 'CLOSE_BUY')
                 
-                close_trade(position)
+                self.broker.close_position(position['ticket'])
                 position = None  # Reset posisi setelah ditutup
 
             # Jika tidak ada posisi, buka posisi SELL baru
             if not position:
                 self.log_activity('OPEN SELL', "Membuka posisi JUAL berdasarkan sinyal.", is_notification=True)
-                place_trade(self.market_for_mt5, mt5.ORDER_TYPE_SELL, self.risk_percent, self.sl_pips, self.tp_pips, self.id, self.timeframe)
+                self.broker.place_order(
+                    symbol=self.market_for_mt5, 
+                    order_type='SELL', 
+                    volume=self.risk_percent, 
+                    sl=self.sl_pips, 
+                    tp=self.tp_pips, 
+                    comment=f"Bot-{self.id}"
+                )
     
     def _log_trade_for_ai_mentor(self, position, profit_loss, action_type):
         """Log trade data untuk analisis AI mentor"""
         try:
             # Hitung apakah stop loss dan take profit digunakan
-            stop_loss_used = hasattr(position, 'sl') and position.sl > 0
-            take_profit_used = hasattr(position, 'tp') and position.tp > 0
+            stop_loss_used = position.get('sl', 0) > 0 if position else False
+            take_profit_used = position.get('tp', 0) > 0 if position else False
             
             # Log ke database untuk AI analysis
             log_trade_for_ai_analysis(
                 bot_id=self.id,
                 symbol=self.market_for_mt5 or self.market,
                 profit_loss=profit_loss,
-                lot_size=position.volume if hasattr(position, 'volume') else self.risk_percent,
+                lot_size=position.get('volume') if position else self.risk_percent,
                 stop_loss_used=stop_loss_used,
                 take_profit_used=take_profit_used,
                 risk_percent=self.risk_percent,
