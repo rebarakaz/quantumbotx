@@ -1,6 +1,9 @@
 # core/strategies/ichimoku_cloud.py
 import numpy as np
-import pandas_ta as ta
+try:
+    import pandas_ta as ta
+except ImportError:
+    from core.utils.pandas_ta_compat import ta
 from .base_strategy import BaseStrategy
 
 class IchimokuCloudStrategy(BaseStrategy):

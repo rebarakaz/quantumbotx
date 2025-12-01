@@ -59,3 +59,10 @@ class BrokerInterface(ABC):
         Get specifications for a symbol (min lot, max lot, tick size, etc.)
         """
         pass
+
+    @abstractmethod
+    def get_todays_profit(self) -> float:
+        """
+        Calculate total profit for trades closed today.
+        """
+        pass

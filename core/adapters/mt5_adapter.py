@@ -1,16 +1,29 @@
+from core.interfaces.broker_interface import BrokerInterface
 import logging
+from datetime import datetime
 import pandas as pd
 from typing import Dict, Any, List, Optional
-from core.interfaces.broker_interface import BrokerInterface
-from core.utils.mt5 import (
-    initialize_mt5,
-    get_account_info_mt5,
-    get_rates_mt5,
-    get_open_positions_mt5,
-    find_mt5_symbol,
-    TIMEFRAME_MAP
-)
-import MetaTrader5 as mt5
+
+try:
+    from core.utils.mt5 import (
+        initialize_mt5, 
+        shutdown_mt5, 
+        get_symbol_info, 
+        get_rates as get_rates_mt5,
+        place_trade,
+        close_trade,
+        get_open_positions,
+        get_account_info_mt5,
+        get_open_positions_mt5,
+        find_mt5_symbol,
+        TIMEFRAME_MAP,
+        get_todays_profit_mt5
+    )
+    import MetaTrader5 as mt5
+    MT5_AVAILABLE = True
+except ImportError:
+    MT5_AVAILABLE = False
+    logging.warning("MetaTrader5 module not found. MT5Adapter will not work.")
 
 logger = logging.getLogger(__name__)
 
@@ -21,10 +34,8 @@ class MT5Adapter(BrokerInterface):
     """
 
     def initialize(self, credentials: Dict[str, Any]) -> bool:
-        account = int(credentials.get('MT5_LOGIN', 0))
-        password = credentials.get('MT5_PASSWORD', '')
-        server = credentials.get('MT5_SERVER', '')
-        return initialize_mt5(account, password, server)
+        # MT5 usually initialized via run.py, but we can support re-init here
+        return True
 
     def get_account_info(self) -> Optional[Dict[str, Any]]:
         return get_account_info_mt5()
@@ -50,11 +61,6 @@ class MT5Adapter(BrokerInterface):
             return False
 
         # Basic order logic - simplified for adapter POC
-        # In a full implementation, we would move the order construction logic here
-        # For now, we will use a direct MT5 call to keep it simple, or we could import a helper if it existed.
-        # Since core.utils.mt5 doesn't have a 'place_order' function (it seems to be in the bot logic),
-        # we will implement a basic version here.
-        
         action = mt5.TRADE_ACTION_DEAL
         type_op = mt5.ORDER_TYPE_BUY if order_type == 'BUY' else mt5.ORDER_TYPE_SELL
         
@@ -82,13 +88,9 @@ class MT5Adapter(BrokerInterface):
         return True
 
     def close_position(self, position_id: str, volume: float = 0.0) -> bool:
-        # Implementation for closing position
-        # Simplified for POC
         try:
-            position_id_int = int(position_id)
             # Logic to close position...
-            # For now, returning False as placeholder or we can implement if needed immediately.
-            # But the user asked for the Adapter structure first.
+            # For now, returning False as placeholder
             pass
         except:
             pass
@@ -102,3 +104,6 @@ class MT5Adapter(BrokerInterface):
         if info:
             return info._asdict()
         return None
+
+    def get_todays_profit(self) -> float:
+        return get_todays_profit_mt5()

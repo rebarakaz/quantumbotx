@@ -8,11 +8,28 @@ import logging
 # Import MetaTrader5 with proper error handling
 try:
     import MetaTrader5 as mt5
+    MT5_AVAILABLE = True
 except ImportError as e:
+    MT5_AVAILABLE = False
     logger = logging.getLogger(__name__)
-    logger.error(f"MetaTrader5 module not found: {e}")
-    logger.error("Please install MetaTrader5 using: pip install MetaTrader5")
-    raise
+    # Define dummy constants to prevent NameError when MT5 is missing
+    class DummyMT5:
+        TIMEFRAME_M1 = 1
+        TIMEFRAME_M5 = 5
+        TIMEFRAME_M15 = 15
+        TIMEFRAME_H1 = 60
+        TIMEFRAME_H4 = 240
+        TIMEFRAME_D1 = 1440
+        TIMEFRAME_W1 = 10080
+        TIMEFRAME_MN1 = 43200
+        
+        def __getattr__(self, name):
+            # Allow constant access but fail on function calls
+            if name.startswith('TIMEFRAME_') or name.startswith('ORDER_') or name.startswith('TRADE_'):
+                return 0
+            raise ImportError(f"MetaTrader5 is not available. Cannot use {name}")
+            
+    mt5 = DummyMT5()
 
 logger = logging.getLogger(__name__)
 

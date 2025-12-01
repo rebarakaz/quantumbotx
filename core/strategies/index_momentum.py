@@ -1,7 +1,10 @@
 # core/strategies/index_momentum.py
 
 import pandas as pd
-import pandas_ta as ta
+try:
+    import pandas_ta as ta
+except ImportError:
+    from core.utils.pandas_ta_compat import ta
 from datetime import datetime
 from .base_strategy import BaseStrategy
 import logging

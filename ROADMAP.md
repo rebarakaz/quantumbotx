@@ -49,4 +49,3 @@ We're developing **QuantumBotX API** - a revolutionary cloud-based trading platf
 ---
 
 **Roadmap Updated: September 2025**
-</content>

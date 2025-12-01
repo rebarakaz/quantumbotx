@@ -1,6 +1,16 @@
-# core\utils\symbols.py
+# core/utils/symbols.py
 
-import MetaTrader5 as mt5
+try:
+    import MetaTrader5 as mt5
+    MT5_AVAILABLE = True
+except ImportError:
+    MT5_AVAILABLE = False
+    # Dummy mt5 for type hinting or preventing immediate NameError
+    class DummyMT5:
+        def __getattr__(self, name):
+            return None
+    mt5 = DummyMT5()
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -16,6 +26,9 @@ FOREX_PREFIX = 'forex\\'
 
 def get_all_symbols_from_mt5():
     """Fungsi helper untuk mengambil semua simbol dari MT5 dengan aman."""
+    if not MT5_AVAILABLE:
+        return []
+        
     try:
         # Koneksi sudah diinisialisasi saat aplikasi pertama kali berjalan.
         # Kita tidak perlu melakukan initialize() di sini lagi.
@@ -33,6 +46,9 @@ def get_stock_symbols(limit=20):
     Mengambil simbol saham, mengurutkannya berdasarkan volume harian tertinggi,
     dan mengembalikan sejumlah 'limit' teratas.
     """
+    if not MT5_AVAILABLE:
+        return []
+        
     all_symbols = get_all_symbols_from_mt5()
     stock_details = []
 
@@ -68,6 +84,9 @@ def get_stock_symbols(limit=20):
 
 def get_forex_symbols():
     """Mengambil simbol forex berdasarkan filter path."""
+    if not MT5_AVAILABLE:
+        return []
+        
     all_symbols = get_all_symbols_from_mt5()
     forex_list = []
 

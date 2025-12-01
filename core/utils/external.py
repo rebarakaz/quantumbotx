@@ -2,7 +2,17 @@
 
 import os
 import requests
-import MetaTrader5 as mt5
+try:
+    import MetaTrader5 as mt5
+    MT5_AVAILABLE = True
+except ImportError:
+    MT5_AVAILABLE = False
+    # Dummy mt5
+    class DummyMT5:
+        def __getattr__(self, name):
+            return None
+    mt5 = DummyMT5()
+
 from dotenv import load_dotenv
 import logging
 
@@ -48,6 +58,9 @@ def get_mt5_symbol_profile(symbol):
     # PERBAIKAN: Jangan melakukan initialize/shutdown di sini.
     # Koneksi sudah dikelola secara terpusat oleh run.py.
     # Cukup periksa apakah koneksi ada.
+    if not MT5_AVAILABLE:
+        return None
+        
     if not mt5.terminal_info():
         logger.error("Koneksi MT5 tidak aktif saat mencoba get_mt5_symbol_profile.")
         return None

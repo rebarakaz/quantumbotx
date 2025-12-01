@@ -1,12 +1,3 @@
-# core/strategies/index_breakout_pro.py
-
-import pandas as pd
-import pandas_ta as ta
-from .base_strategy import BaseStrategy
-import logging
-
-logger = logging.getLogger(__name__)
-
 class IndexBreakoutProStrategy(BaseStrategy):
     """
     INDEX_BREAKOUT_PRO - Advanced Stock Index Breakout Strategy

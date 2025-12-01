@@ -1,9 +1,12 @@
 # core/routes/api_indicators.py
 
 from flask import Blueprint, request, jsonify
-from core.utils.mt5 import get_rates_mt5
-import MetaTrader5 as mt5
-import pandas_ta as ta
+from core.utils.mt5 import get_rates_mt5, TIMEFRAME_MAP
+try:
+    import pandas_ta as ta
+except ImportError:
+    from core.utils.pandas_ta_compat import ta
+import logging
 
 api_indicators = Blueprint('api_indicators', __name__)
 
@@ -12,15 +15,7 @@ def get_rsi_data():
     symbol = request.args.get('symbol', 'EURUSD')
     tf = request.args.get('timeframe', 'H1')
 
-    tf_map = {
-        'M1': mt5.TIMEFRAME_M1,
-        'M5': mt5.TIMEFRAME_M5,
-        'M15': mt5.TIMEFRAME_M15,
-        'H1': mt5.TIMEFRAME_H1,
-        'H4': mt5.TIMEFRAME_H4,
-        'D1': mt5.TIMEFRAME_D1
-    }
-    timeframe = tf_map.get(tf.upper(), mt5.TIMEFRAME_H1)
+    timeframe = TIMEFRAME_MAP.get(tf.upper(), TIMEFRAME_MAP['H1'])
 
     df = get_rates_mt5(symbol, timeframe, 100)
     if df is None or len(df) < 20:

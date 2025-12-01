@@ -1,5 +1,8 @@
 # /core/strategies/rsi_crossover.py
-import pandas_ta as ta
+try:
+    import pandas_ta as ta
+except ImportError:
+    from core.utils.pandas_ta_compat import ta
 import numpy as np
 from .base_strategy import BaseStrategy
 

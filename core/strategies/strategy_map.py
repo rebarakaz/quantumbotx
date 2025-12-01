@@ -13,7 +13,8 @@ from .turtle_breakout import TurtleBreakoutStrategy
 from .ichimoku_cloud import IchimokuCloudStrategy
 from .dynamic_breakout import DynamicBreakoutStrategy
 from .index_momentum import IndexMomentumStrategy
-from .index_breakout_pro import IndexBreakoutProStrategy
+# TEMPORARILY DISABLED - needs import fix
+# from .index_breakout_pro import IndexBreakoutProStrategy
 from .beginner_defaults import BEGINNER_DEFAULTS
 
 STRATEGY_MAP = {
@@ -30,7 +31,7 @@ STRATEGY_MAP = {
     'ICHIMOKU_CLOUD': IchimokuCloudStrategy,
     'DYNAMIC_BREAKOUT': DynamicBreakoutStrategy,
     'INDEX_MOMENTUM': IndexMomentumStrategy,
-    'INDEX_BREAKOUT_PRO': IndexBreakoutProStrategy,
+    # 'INDEX_BREAKOUT_PRO': IndexBreakoutProStrategy,  # TEMPORARILY DISABLED
 }
 
 # Beginner-friendly strategy metadata
@@ -148,14 +149,14 @@ STRATEGY_METADATA = {
         'market_types': ['INDICES'],
         'learning_priority': 8
     },
-    'INDEX_BREAKOUT_PRO': {
-        'difficulty': 'ADVANCED',
-        'complexity_score': 7,
-        'recommended_for_beginners': False,
-        'description': 'Professional index breakout with institutional analysis',
-        'market_types': ['INDICES'],
-        'learning_priority': 10
-    }
+    # 'INDEX_BREAKOUT_PRO': {
+    #     'difficulty': 'ADVANCED',
+    #     'complexity_score': 7,
+    #     'recommended_for_beginners': False,
+    #     'description': 'Professional index breakout with institutional analysis',
+    #     'market_types': ['INDICES'],
+    #     'learning_priority': 10
+    # }
 }
 
 def get_beginner_strategies():

@@ -29,6 +29,18 @@ class CCXTAdapter(BrokerInterface):
                 'options': {'defaultType': 'future'} # Default to futures for bots
             }
             
+            # Enable testnet if configured
+            if credentials.get('TESTNET', False):
+                if self.exchange_id == 'binance':
+                    config['urls'] = {
+                        'api': {
+                            'public': 'https://testnet.binance.vision/api',
+                            'private': 'https://testnet.binance.vision/api',
+                        }
+                    }
+                    logger.info("Using Binance TESTNET (https://testnet.binance.vision)")
+                # Add other exchange testnet URLs as needed
+            
             if credentials.get('PASSWORD'): # For exchanges like KuCoin
                 config['password'] = credentials.get('PASSWORD')
                 
@@ -145,3 +157,7 @@ class CCXTAdapter(BrokerInterface):
         except Exception as e:
             logger.error(f"Error getting symbol info for {symbol}: {e}")
             return None
+
+    def get_todays_profit(self) -> float:
+        # TODO: Implement profit calculation for CCXT
+        return 0.0

@@ -10,7 +10,7 @@ Jinja2
 MarkupSafe
 numpy
 pandas
-pandas_ta
+finta
 python-dateutil
 python-dotenv
 pytz

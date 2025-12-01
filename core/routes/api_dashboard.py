@@ -1,11 +1,13 @@
 # core/routes/api_dashboard.py
 
 from flask import Blueprint, jsonify, request
-from core.utils.mt5 import get_account_info_mt5, get_todays_profit_mt5, get_rates_mt5
+from core.utils import market_data
 from core.db import queries
 from datetime import datetime, timedelta
-import MetaTrader5 as mt5
-import pandas_ta as ta
+try:
+    import pandas_ta as ta
+except ImportError:
+    from core.utils.pandas_ta_compat import ta
 import logging
 
 api_dashboard = Blueprint('api_dashboard', __name__)
@@ -14,8 +16,8 @@ logger = logging.getLogger(__name__)
 @api_dashboard.route('/api/dashboard/stats')
 def api_dashboard_stats():
     try:
-        account_info = get_account_info_mt5()
-        todays_profit = get_todays_profit_mt5()
+        account_info = market_data.get_account_info()
+        todays_profit = market_data.get_todays_profit()
 
         # Get all bots data
         all_bots = queries.get_all_bots()
@@ -37,15 +39,15 @@ def api_dashboard_stats():
 def api_account_info():
     """Enhanced account info endpoint for dashboard"""
     try:
-        account_info = get_account_info_mt5()
-        todays_profit = get_todays_profit_mt5()
+        account_info = market_data.get_account_info()
+        todays_profit = market_data.get_todays_profit()
         
         return jsonify({
             'success': True,
             'equity': account_info.get('equity', 0) if account_info else 0,
             'balance': account_info.get('balance', 0) if account_info else 0,
             'margin': account_info.get('margin', 0) if account_info else 0,
-            'free_margin': account_info.get('margin_free', 0) if account_info else 0,
+            'free_margin': account_info.get('margin_free', 0) if account_info else 0, # Note: free_margin might be 'free' in CCXT
             'todays_profit': todays_profit,
             'profit_percentage': (todays_profit / account_info.get('balance', 1) * 100) if account_info and account_info.get('balance', 0) > 0 else 0
         })
@@ -95,7 +97,8 @@ def api_market_data(symbol):
     """Get market data including price and RSI for charts"""
     try:
         # Get historical data for the symbol
-        df = get_rates_mt5(symbol, mt5.TIMEFRAME_H1, 50)
+        # Use H1 timeframe by default for dashboard charts
+        df = market_data.get_market_rates(symbol, "H1", 50)
         
         if df is None or df.empty:
             return jsonify({

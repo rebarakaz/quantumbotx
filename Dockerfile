@@ -7,16 +7,23 @@ WORKDIR /app
 # Copy the current directory contents into the container at /app
 COPY . /app
 
-# Install any needed packages specified in requirements-docker.txt
-RUN pip install --no-cache-dir -r requirements-docker.txt
+# Install system dependencies (git only for potential future use)
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
-# Make port 5000 available to the world outside this container
-EXPOSE 5000
+# Upgrade pip and install dependencies with a generous timeout
+ENV PIP_DEFAULT_TIMEOUT=120
 
-# Define environment variable
+# Copy pandas_ta stub for compatibility
+COPY pandas_ta_stub /app/pandas_ta_stub
+
+# Install dependencies and pandas_ta stub
+RUN python -m pip install --upgrade pip && \
+    pip install /app/pandas_ta_stub && \
+    pip install --no-cache-dir -r requirements-docker.txt
+
 ENV FLASK_APP=run.py
 ENV FLASK_RUN_HOST=0.0.0.0
-ENV BROKER_TYPE=CCXT 
+ENV BROKER_TYPE=CCXT
 # Default to CCXT in Docker since MT5 doesn't run on Linux easily
 
 # Run run.py when the container launches

@@ -1,5 +1,4 @@
-version: '3.8'
-
+# Docker Compose for QuantumBotX (no version key needed)
 services:
   quantumbotx:
     build: .
@@ -13,6 +12,7 @@ services:
       - FLASK_ENV=development
       - BROKER_TYPE=CCXT
       - EXCHANGE_ID=binance
+      - FLASK_HOST=0.0.0.0
       # - API_KEY=your_api_key
       # - API_SECRET=your_api_secret
     restart: unless-stopped
